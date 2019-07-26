@@ -2,13 +2,13 @@ import Path from 'path';
 import Glob from 'glob';
 
 export default class MultiConfigLoader {
-  static getConfigByFullPath(fullPath, contextPath, absOutputPath, asObject = false) {
+  static getConfigByFullPath (fullPath, contextPath, absOutputPath, asObject = false, compileTarget) {
     let target = asObject ? {} : [];
     let paths = [];
     try {
       const pathPattern = Path.join(
         fullPath,
-        '**/*.js'
+        '**/*.jsx'
       );
       paths = Glob.sync(pathPattern);
     } catch (error) {
@@ -20,7 +20,7 @@ export default class MultiConfigLoader {
 
       try {
         const func = require(p);
-        const value = func(contextPath, absOutputPath);
+        const value = func(contextPath, absOutputPath, compileTarget);
 
         if (asObject) {
           target = {
@@ -41,21 +41,23 @@ export default class MultiConfigLoader {
     return target;
   }
 
-  static getFullConfigPath(basePath, configType, commandType) {
+  static getFullConfigPath (basePath, configType, commandType) {
     return Path.join(basePath, configType, commandType);
   }
 
   baseConfigPath;
   contextPath;
   absOutputPath;
+  compileTarget;
 
-  constructor(baseConfigPath, contextPath, absOutputPath) {
+  constructor (baseConfigPath, contextPath, absOutputPath, compileTarget) {
     this.baseConfigPath = baseConfigPath;
     this.contextPath = contextPath;
     this.absOutputPath = absOutputPath;
+    this.compileTarget = compileTarget;
   }
 
-  getConfiguration(configType, commandType, asObject = false) {
+  getConfiguration (configType, commandType, asObject = false) {
     const fullConfigPath = MultiConfigLoader.getFullConfigPath(
       this.baseConfigPath,
       configType,
@@ -66,11 +68,12 @@ export default class MultiConfigLoader {
       fullConfigPath,
       this.contextPath,
       this.absOutputPath,
-      asObject
+      asObject,
+      this.compileTarget
     );
   }
 
-  getFullConfigFromMap(map = {
+  getFullConfigFromMap (map = {
     configName: [
       {
         configType: '',
@@ -79,7 +82,7 @@ export default class MultiConfigLoader {
       }
     ]
   }) {
-    let fullConfig = {};
+    const fullConfig = {};
 
     if (map instanceof Object) {
       for (const k in map) {
@@ -112,7 +115,7 @@ export default class MultiConfigLoader {
     return fullConfig;
   }
 
-  getConfigForTypes(configTypes = [], commandTypes = [], objectTypes = []) {
+  getConfigForTypes (configTypes = [], commandTypes = [], objectTypes = []) {
     const configMap = {};
 
     for (let i = 0; i < configTypes.length; i++) {

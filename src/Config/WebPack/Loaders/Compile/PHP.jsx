@@ -1,8 +1,9 @@
-export default function (contextPath, outputPath) {
+export default function (contextPath) {
   const fileLoaderPath = `${require.resolve('file-loader')}?context=${contextPath}&name=[path][name].[ext]?[hash]`;
+
   return [
     {
-      test: /(^|\/|\\)browserconfig\.xml$/,
+      test: /\.php$/,
       loader: fileLoaderPath
     }
   ];

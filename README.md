@@ -2,8 +2,6 @@
 
 An HTML, ES2016, JSX compiler.
 
-## ⚠️ WARNING: DO NOT USE ON WINDOWS FOR NOW!
-
 ## Badge
 
 [![RDX Enabled](https://img.shields.io/badge/rdx-enabled-blue.svg?style=flat-square)](http://rdx.resist.design)
@@ -25,7 +23,7 @@ Compile modern **HTML** web applications that include **ES6+** JavaScript and **
 1. Requires:
     - NodeJS 4+
     - NPM 3+
-1. Run: `npm i -g @resistdesign/rdx`
+1. Run: `npm i -g rdx`
 
 ## Commands
 
@@ -66,7 +64,7 @@ Example:
   - Import in JS: `import MySrc from './folder/file.svg';`
     - Use in JSX: `<img src={MySrc}/>`
 1. Fonts (WOFF, TTF, EOT, SVG, OTF)
-1. CSS/LESS (Auto-Prefixed)
+1. CSS/LESS/SASS/SCSS (Auto-Prefixed)
   - Hot reloading supported when imported into JS files.
 1. ES6+ (Stage 0)
 1. JSX

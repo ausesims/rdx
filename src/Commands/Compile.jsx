@@ -1,7 +1,7 @@
 import Path from 'path';
-import Command from '../Base/Command';
 import WebPack from 'webpack';
 import Glob from 'glob';
+import Command from '../Base/Command';
 import WebPackConfigBuilder from '../Config/WebPack/WebPackConfigBuilder';
 import BabelOptions from '../Config/WebPack/Constants/BabelOptions';
 
@@ -18,17 +18,18 @@ export default class Compile extends Command {
 \tDEBUG: Used by a specific application for debug purposes.`,
     '-a': `Compile a specific application.
 \tOmit to compile all applications.
-\tExample: ` + ('rdx compile -a src/index.html'.yellow),
+\tExample: ${'rdx compile -a src/index.html'.yellow}`,
     '-c': 'Context path. Default: ./src',
     '-o': 'Output path. Default: ./public',
+    '-t': 'Set the compile target.',
     '--babelrc': 'Enable the use of per package .babelrc files.'
   };
 
-  constructor () {
+  constructor() {
     super('compile', Compile.HELP_DESCRIPTOR);
   }
 
-  static setENV (ENV) {
+  static setENV(ENV) {
     try {
       if (typeof process.env.NODE_ENV !== 'string') {
         process.env.NODE_ENV = ENV;
@@ -38,7 +39,7 @@ export default class Compile extends Command {
     }
   }
 
-  static processArgs (args) {
+  static processArgs(args) {
     const contextPath = typeof args.c === 'string' ? args.c : Compile.DEFAULT_CONTEXT_PATH;
 
     // TRICKY: Enable the use of per package `.babelrc` files.
@@ -53,11 +54,12 @@ export default class Compile extends Command {
       contextPath,
       outputPath: Path.resolve(
         typeof args.o === 'string' ? args.o : Compile.DEFAULT_OUTPUT_PATH
-      )
+      ),
+      compileTarget: args.t
     };
   }
 
-  static onCompileComplete (error, stats) {
+  static onCompileComplete(error, stats) {
     if (error) {
       Command.logError(error);
       return;
@@ -73,17 +75,22 @@ export default class Compile extends Command {
 
     if (jsonStats.warnings.length > 0) {
       jsonStats.warnings.forEach(warning => {
-        let lines = warning ? String(warning).split('\n') : [''];
+        const lines = warning ? String(warning).split('\n') : [''];
 
         Command.logError(`\t\t${lines.join('\n\t\t')}`, true);
       });
     }
   }
 
-  static getCompiler ({ targets, contextPath, outputPath }, serve = false, inlineContent = '', host, port) {
+  static getCompiler({targets, contextPath, outputPath, compileTarget},
+                     serve = false,
+                     inlineContent = '',
+                     host,
+                     port,
+                     protocol) {
     const webPackConfig = [];
 
-    if (!targets instanceof Array || !targets.length) {
+    if (!(targets instanceof Array) || !targets.length) {
       throw new Error('No application(s) specified.');
     }
 
@@ -96,7 +103,9 @@ export default class Compile extends Command {
           serve,
           inlineContent,
           host,
-          port
+          port,
+          compileTarget,
+          protocol
         );
 
       webPackConfig.push(config);
@@ -105,7 +114,7 @@ export default class Compile extends Command {
     return WebPack(webPackConfig, Compile.onCompileComplete);
   }
 
-  async run (args) {
+  async run(args) {
     await this.runBase(args);
     Compile.setENV(Compile.DEFAULT_ENV);
     const argConfig = Compile.processArgs(args);

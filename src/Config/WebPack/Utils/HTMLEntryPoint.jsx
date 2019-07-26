@@ -1,7 +1,7 @@
 import Path from 'path';
 import htmlparser from 'htmlparser';
 
-const FILE_EXT_TEST = /\.(png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|otf|json|xml|css|less|js|jsx)/;
+const FILE_EXT_TEST = /\.(mpg|mpeg|mp4|mp3|webm|aac|aif|aiff|wav|mov|flac|webp|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|otf|json|xml|css|less|js|jsx|php)/;
 const VOID_HTML_ELEMENT_MAP = {
   area: true,
   base: true,
@@ -20,8 +20,9 @@ const VOID_HTML_ELEMENT_MAP = {
   track: true,
   wbr: true
 };
+const SERVER_SIDE_CODE_REL = 'server-side-code';
 
-function isStringURL(item) {
+function isStringURL (item) {
   return typeof item === 'string' &&
     item !== '' &&
     FILE_EXT_TEST.test(Path.extname(item)) &&
@@ -29,7 +30,7 @@ function isStringURL(item) {
 }
 
 export default class HTMLEntryPoint {
-  static getPathWithHash(path, hash) {
+  static getPathWithHash (path, hash) {
     let newPath = path;
 
     if (
@@ -44,16 +45,18 @@ export default class HTMLEntryPoint {
 
   html;
   nodes;
+  serve;
 
-  constructor(html) {
+  constructor (html, serve) {
     this.html = html;
-    var handler = new htmlparser.DefaultHandler();
-    var parser = new htmlparser.Parser(handler);
+    this.serve = serve;
+    const handler = new htmlparser.DefaultHandler();
+    const parser = new htmlparser.Parser(handler);
     parser.parseComplete(this.html);
     this.nodes = handler.dom;
   }
 
-  toHTML(nodeSet, hash, inlineContent = '') {
+  toHTML (nodeSet, hash, inlineContent = '') {
     const html = [];
     const targetNodes = nodeSet || this.nodes;
 
@@ -72,6 +75,16 @@ export default class HTMLEntryPoint {
           default:
             if (node.attribs instanceof Object) {
               const attribList = [];
+
+              if (
+                node.name.toLowerCase() === 'link' &&
+                (
+                  node.attribs.rel === SERVER_SIDE_CODE_REL ||
+                  node.attribs.type === SERVER_SIDE_CODE_REL
+                )
+              ) {
+                return;
+              }
 
               for (const k in node.attribs) {
                 if (node.attribs.hasOwnProperty(k)) {
@@ -142,7 +155,7 @@ export default class HTMLEntryPoint {
     return html.join('');
   }
 
-  getNodesByName(name, node) {
+  getNodesByName (name, node) {
     let nodes = [];
 
     if (typeof name === 'string' && node instanceof Object) {
@@ -176,7 +189,7 @@ export default class HTMLEntryPoint {
     return nodes;
   }
 
-  getMeta() {
+  getMeta () {
     return this.getNodesByName('meta', this.nodes)
       .map(meta => {
         return meta.attribs && meta.attribs.content;
@@ -184,15 +197,20 @@ export default class HTMLEntryPoint {
       .filter(isStringURL);
   }
 
-  getLinks() {
+  getLinks () {
     return this.getNodesByName('link', this.nodes)
+      .filter(link => {
+        return !this.serve ||
+          !(link.attribs instanceof Object) ||
+          link.attribs.rel !== SERVER_SIDE_CODE_REL;
+      })
       .map(link => {
         return link.attribs && link.attribs.href;
       })
       .filter(isStringURL);
   }
 
-  getScripts() {
+  getScripts () {
     return this.getNodesByName('script', this.nodes)
       .map(script => {
         return script.attribs && script.attribs.src;
@@ -200,7 +218,7 @@ export default class HTMLEntryPoint {
       .filter(isStringURL);
   }
 
-  getImages() {
+  getImages () {
     return this.getNodesByName('img', this.nodes)
       .map(image => {
         return image.attribs && image.attribs.src;
@@ -208,7 +226,7 @@ export default class HTMLEntryPoint {
       .filter(isStringURL);
   }
 
-  getEntrypoints() {
+  getEntrypoints () {
     const entryMap = {};
     const list = [
       ...this.getMeta(),

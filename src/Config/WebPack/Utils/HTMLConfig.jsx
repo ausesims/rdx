@@ -1,28 +1,46 @@
 import Path from 'path';
 import FS from 'fs';
-import HTMLEntryPoint from './HTMLEntryPoint';
 import ExtractTextPlugin from 'extract-text-webpack-plugin';
+import HTMLEntryPoint from './HTMLEntryPoint';
 
 export default class HTMLConfig {
   static CSS_ENTRY_POINT_POSTFIX = '?CSSEntryPoint';
   static IMPORTED_CSS_EXT = '.imported.css';
 
-  static getCSSConfig(htmlCSSDestinationPath, serve) {
+  static getCSSConfig (htmlCSSDestinationPath, serve) {
     const config = {};
+    const cssLoader = require.resolve('css-loader');
+    const lessLoader = require.resolve('less-loader');
+    const sassLoader = require.resolve('sass-loader');
+    const postCSSLoader = require.resolve('postcss-loader');
+    const lessTest = /\.(less|css)$/;
+    const sassTest = /\.(scss|sass)$/;
 
     if (serve) {
+      const baseLoaders = [
+        // TRICKY: See comments in PatchedStyleLoader.
+        require.resolve('./CustomLoaders/PatchedStyleLoader'),
+        cssLoader
+      ];
+
       config.loaders = [
         {
-          test: /\.(less|css)$/,
+          test: lessTest,
           loader: [
-            // TRICKY: See comments in PatchedStyleLoader.
-            require.resolve('./CustomLoaders/PatchedStyleLoader'),
-            require.resolve('css-loader'),
-            require.resolve('less-loader'),
-            require.resolve('postcss-loader')
+            ...baseLoaders,
+            lessLoader,
+            postCSSLoader
+          ].join('!')
+        },
+        {
+          test: sassTest,
+          loader: [
+            ...baseLoaders,
+            sassLoader,
+            postCSSLoader
           ].join('!')
         }
-      ]
+      ];
     } else {
       const etp = new ExtractTextPlugin(
         `${htmlCSSDestinationPath}?[hash]`
@@ -31,24 +49,34 @@ export default class HTMLConfig {
       config.plugins = [etp];
       config.loaders = [
         {
-          test: /\.(less|css)$/,
+          test: lessTest,
           loader: etp.extract(
             [
-              require.resolve('css-loader'),
-              require.resolve('less-loader'),
-              require.resolve('postcss-loader')
+              cssLoader,
+              lessLoader,
+              postCSSLoader
+            ].join('!')
+          )
+        },
+        {
+          test: sassTest,
+          loader: etp.extract(
+            [
+              cssLoader,
+              sassLoader,
+              postCSSLoader
             ].join('!')
           )
         }
-      ]
+      ];
     }
 
     return config;
   }
 
-  static load(htmlFilePath, contextPath, inlineContent = '', serve = false, host, port) {
+  static load (htmlFilePath, contextPath, inlineContent = '', serve = false, host, port, protocol) {
     const htmlSourcePath = Path.resolve(htmlFilePath);
-    const htmlEntry = new HTMLEntryPoint(FS.readFileSync(htmlFilePath, { encoding: 'utf8' }));
+    const htmlEntry = new HTMLEntryPoint(FS.readFileSync(htmlFilePath, { encoding: 'utf8' }), serve);
     const htmlEntryMap = htmlEntry.getEntrypoints();
     const htmlContextPath = Path.dirname(htmlFilePath);
     const htmlOutputContextPath = Path.relative(contextPath, htmlContextPath);
@@ -61,6 +89,7 @@ export default class HTMLConfig {
     const plugins = [
       // Secret Weapon!
       function () {
+        // eslint-disable-next-line
         this.plugin('emit', function (compilation, callback) {
           const {
             assets,
@@ -84,10 +113,10 @@ export default class HTMLConfig {
           // Replace the HTML Application in the asset pipeline.
           assets[htmlDestinationPath] = {
             source: function () {
-              const cssInlineContent = serve ? '' : `<link rel="stylesheet" href="./${htmlCSSFileName}?${hash}">`;
+              const cssInlineContent = serve ? '' : `<link rel="stylesheet" media="all" href="./${htmlCSSFileName}?${hash}">`;
               const inlineContentWithCSSLink = `${inlineContent}${cssInlineContent}`;
 
-              return new Buffer(htmlEntry.toHTML(htmlEntry.nodes, hash, inlineContentWithCSSLink))
+              return new Buffer(htmlEntry.toHTML(htmlEntry.nodes, hash, inlineContentWithCSSLink));
             },
             size: function () {
               return Buffer.byteLength(this.source(), 'utf8');
@@ -147,7 +176,7 @@ export default class HTMLConfig {
           loaders.push(loadCSS);
         } else if (serve && (ext === '.js' || ext === '.jsx')) {
           sourcePath = [
-            `${require.resolve('webpack-dev-server/client')}?http://${host}:${port}`,
+            `${require.resolve('webpack-dev-server/client')}?${protocol}://${host}:${port}`,
             require.resolve('webpack/hot/only-dev-server'),
             sourcePath
           ];

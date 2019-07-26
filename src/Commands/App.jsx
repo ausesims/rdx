@@ -1,9 +1,10 @@
 import 'colors';
 import FS from 'fs-extra';
 import Path from 'path';
-import Command from '../Base/Command';
 import Prompt from 'prompt';
 import Mustache from 'mustache';
+import Command from '../Base/Command';
+import Print from '../Utils/General';
 
 const PROMPT_FIELDS = [
   {
@@ -57,7 +58,7 @@ const PROMPT_FIELDS = [
 ];
 const HELP_DESCRIPTOR = {
   '*': 'Omit any flag to be prompted for a value.',
-  ...PROMPT_FIELDS.reduce((pV, cV, cI, a) => {
+  ...PROMPT_FIELDS.reduce((pV, cV) => {
     const msg = cV.message ? `\n\t${cV.message}` : '';
     const def = cV.hasOwnProperty('default') ? `\n\tDefault: ${JSON.stringify(cV.default)}` : '';
     pV[`-${cV.name}`] = `${cV.description}${msg}${def}`;
@@ -83,12 +84,12 @@ const BROWSER_CONFIG_XML = 'browserconfig.xml';
 const MANIFEST_JSON = 'manifest.json';
 
 export default class App extends Command {
-  constructor () {
+  constructor() {
     super('app', HELP_DESCRIPTOR);
   }
 
-  async getAppInfo (args) {
-    const info = await new Promise((res, rej) => {
+  async getAppInfo(args) {
+    const info = await new Promise(res => {
       Prompt.colors = false;
       Prompt.message = '';
       Prompt.delimiter = '';
@@ -101,7 +102,7 @@ export default class App extends Command {
         }
 
         res(result);
-      })
+      });
     });
 
     if (typeof info.d === 'string') {
@@ -119,7 +120,7 @@ export default class App extends Command {
     return info;
   }
 
-  async mkDir (dir) {
+  async mkDir(dir) {
     return await new Promise((res, rej) => {
       FS.mkdirs(dir, error => {
         if (error) {
@@ -132,12 +133,12 @@ export default class App extends Command {
     });
   }
 
-  async copy (from, to) {
+  async copy(from, to) {
     return await new Promise((res, rej) => {
       FS.copy(
         from,
         to,
-        { clobber: false },
+        {clobber: false},
         (error, result) => {
           if (error) {
             rej(error);
@@ -150,11 +151,11 @@ export default class App extends Command {
     });
   }
 
-  async readFile (path) {
+  async readFile(path) {
     return await new Promise((res, rej) => {
       FS.readFile(
         path,
-        { encoding: 'utf8' },
+        {encoding: 'utf8'},
         (error, result) => {
           if (error) {
             rej(error);
@@ -167,13 +168,13 @@ export default class App extends Command {
     });
   }
 
-  async readAsset (name) {
+  async readAsset(name) {
     return await this.readFile(
       Path.resolve(Path.join(ASSET_DIR, name))
     );
   }
 
-  async writeAsset (name, dir, content, overwrite = true) {
+  async writeAsset(name, dir, content, overwrite = true) {
     await this.mkDir(dir);
     const fullPath = Path.join(dir, name);
 
@@ -201,7 +202,7 @@ export default class App extends Command {
       FS.writeFile(
         fullPath,
         content,
-        { encoding: 'utf8' },
+        {encoding: 'utf8'},
         (error, result) => {
           if (error) {
             rej(error);
@@ -214,13 +215,13 @@ export default class App extends Command {
     });
   }
 
-  async getParsedTemplate (name, templateInfo) {
+  async getParsedTemplate(name, templateInfo) {
     const content = await this.readAsset(name);
 
     return Mustache.render(content, templateInfo);
   }
 
-  getTemplateInfo (appInfo) {
+  getTemplateInfo(appInfo) {
     return {
       title: appInfo.a,
       path: appInfo.f,
@@ -230,7 +231,7 @@ export default class App extends Command {
     };
   }
 
-  async verifyPackageJson () {
+  async verifyPackageJson() {
     try {
       const projPackRoot = Command.findRoot();
 
@@ -242,7 +243,7 @@ export default class App extends Command {
     }
   }
 
-  async run (args) {
+  async run(args) {
     await this.runBase(args);
 
     if (!await this.verifyPackageJson()) {
@@ -288,15 +289,15 @@ export default class App extends Command {
       const projPackObj = JSON.parse(projPackInfo);
       const newProjPackObj = {
         ...projPackObj,
-        devDependencies: {
-          ...projPackObj.devDependencies,
-          ...depPackObj.devDependencies
+        dependencies: {
+          ...projPackObj.dependencies,
+          ...depPackObj.dependencies
         }
       };
       const newProjPackInfo = JSON.stringify(newProjPackObj, null, '  ');
 
       this.log('Start', 'Writing Assets...', 'Project');
-      this.log('Added', 'Development Dependencies', Object.keys(depPackObj.devDependencies).join(', '));
+      this.log('Added', 'Dependencies', Object.keys(depPackObj.dependencies).join(', '));
       await this.writeAsset(PACKAGE_JSON, projPackRoot, newProjPackInfo);
       await this.writeAsset(README_MD, projPackRoot, readmeMD, false);
       this.log('Finished', 'Writing Assets', 'Project');
@@ -336,9 +337,9 @@ export default class App extends Command {
     }
 
     if (appInfo.d) {
-      console.log('\n\n');
+      Print('\n\n');
       this.log('NOTE', `Don't forget to run`, 'npm i');
-      console.log('\n\n');
+      Print('\n\n');
     }
   }
 }
